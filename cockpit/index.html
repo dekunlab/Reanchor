@@ -1069,6 +1069,7 @@ function DetailView({ sessionSummary, onBack, onResolved }) {
     try {
       const data = await apiFetch(`/sessions/${sessionSummary.session_id}`);
       const flat = {
+        session_id: sessionSummary.session_id,
         device_id: sessionSummary.device_id,
         confidence_score: data.diagnosis?.confidence,
         hypothesis: data.diagnosis?.hypothesis,
