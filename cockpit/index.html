@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SynaptoFlow — Clinical Telemetry Cockpit</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- React -->
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0b1220;
+    --bg-raised: #101a2e;
+    --bg-card: #131f38;
+    --bg-card-hover: #162445;
+    --border: #24314d;
+    --border-soft: #1b2740;
+    --text: #e9eef7;
+    --text-muted: #8b9ab3;
+    --text-faint: #5b6b87;
+
+    --teal: #2dd4bf;
+    --teal-soft: rgba(45, 212, 191, 0.12);
+    --amber: #f5a524;
+    --amber-soft: rgba(245, 165, 36, 0.12);
+    --red: #f0576a;
+    --red-soft: rgba(240, 87, 106, 0.12);
+    --green: #34d399;
+    --green-soft: rgba(52, 211, 153, 0.12);
+    --blue: #60a5fa;
+
+    --radius: 10px;
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(45, 212, 191, 0.05), transparent),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(96, 165, 250, 0.04), transparent);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  #root { min-height: 100vh; }
+
+  a, button { font-family: inherit; }
+
+  ::selection { background: var(--teal-soft); color: var(--teal); }
+
+  :focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+  }
+
+  /* ---------- Layout shell ---------- */
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 80px;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 22px;
+    margin-bottom: 26px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+
+  .brand-text h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .brand-text p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.6);
+    animation: pulse 2.2s infinite;
+  }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.45); }
+    70%  { box-shadow: 0 0 0 7px rgba(45, 212, 191, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot { animation: none; }
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .section-heading h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-heading .count {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+
+  /* ---------- Banners ---------- */
+
+  .banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 13px 16px;
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+  }
+
+  .banner-error {
+    background: var(--red-soft);
+    border-color: rgba(240, 87, 106, 0.35);
+    color: #ffb4bf;
+  }
+
+  .banner-success {
+    background: var(--green-soft);
+    border-color: rgba(52, 211, 153, 0.35);
+    color: #a7f3d4;
+  }
+
+  .banner-warning {
+    background: var(--amber-soft);
+    border-color: rgba(245, 165, 36, 0.35);
+    color: #ffd794;
+  }
+
+  .banner .banner-icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .state-msg {
+    padding: 60px 0;
+    text-align: center;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- Session list ---------- */
+
+  .session-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .session-card {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 20px;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .session-card:hover, .session-card:focus-visible {
+    border-color: #33456a;
+    background: var(--bg-card-hover);
+  }
+
+  .session-main {
+    min-width: 0;
+  }
+
+  .session-device {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .session-device .dev-tag {
+    color: var(--text-faint);
+    font-weight: 400;
+  }
+
+  .session-hypothesis {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .method-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 9px;
+    white-space: nowrap;
+  }
+
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+
+  .badge-red   { color: var(--red);   border-color: rgba(240, 87, 106, 0.4); background: var(--red-soft); }
+  .badge-amber { color: var(--amber); border-color: rgba(245, 165, 36, 0.4); background: var(--amber-soft); }
+  .badge-green { color: var(--green); border-color: rgba(52, 211, 153, 0.4); background: var(--green-soft); }
+
+  .empty-state {
+    text-align: center;
+    padding: 70px 20px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    color: var(--text-faint);
+  }
+
+  .empty-state h3 {
+    color: var(--text-muted);
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  .empty-state p {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  /* ---------- Detail view ---------- */
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 4px 0;
+    margin-bottom: 18px;
+  }
+
+  .back-btn:hover { color: var(--text); }
+
+  .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .detail-title {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .detail-sub {
+    font-size: 12.5px;
+    color: var(--text-faint);
+    margin-top: 4px;
+    font-family: var(--font-mono);
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 880px) {
+    .detail-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+
+  .panel-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin: 0 0 14px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 260px;
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 18px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  .legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+  }
+
+  .hypothesis-block {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text);
+  }
+
+  .confidence-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .confidence-bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border-soft);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .confidence-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+  }
+
+  .evidence-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .evidence-card {
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 13px 15px;
+    background: var(--bg-raised);
+  }
+
+  .evidence-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .evidence-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .evidence-outcome {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .evidence-metrics {
+    display: flex;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--text-faint);
+  }
+
+  .evidence-metrics span b {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .no-precedent {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+    background: var(--amber-soft);
+    border: 1px solid rgba(245, 165, 36, 0.35);
+    border-radius: 8px;
+    color: #ffd794;
+    font-size: 13px;
+  }
+
+  /* ---------- Calibration form ---------- */
+
+  .param-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+
+  .param-row:last-child { border-bottom: none; }
+
+  .param-key {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+
+  .param-input {
+    width: 130px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 7px 10px;
+    text-align: right;
+  }
+
+  .param-input:focus { border-color: var(--teal); }
+
+  .param-readonly {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text-faint);
+  }
+
+  .param-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--teal);
+  }
+
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+
+  .field input[type="text"] {
+    width: 100%;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-size: 13.5px;
+    padding: 10px 12px;
+    font-family: var(--font-ui);
+  }
+
+  .field input[type="text"]:focus { border-color: var(--teal); }
+
+  .action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 11px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease, transform 0.05s ease;
+    border: 1px solid transparent;
+  }
+
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-approve {
+    background: var(--green);
+    color: #06281c;
+    border-color: var(--green);
+  }
+  .btn-approve:hover:not(:disabled) { opacity: 0.88; }
+
+  .btn-reject {
+    background: transparent;
+    color: var(--red);
+    border-color: rgba(240, 87, 106, 0.5);
+  }
+  .btn-reject:hover:not(:disabled) { background: var(--red-soft); }
+
+  .method-chip {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--teal);
+    background: var(--teal-soft);
+    border: 1px solid rgba(45, 212, 191, 0.35);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ---- Configuration ----
+const API_BASE_URL = "https://jae7viti4f.execute-api.eu-north-1.amazonaws.com";
+
+// ---- Small helpers ----
+
+function pct(v) {
+  if (v === null || v === undefined || isNaN(v)) return "—";
+  return Math.round(v * 100) + "%";
+}
+
+function confidenceTone(v) {
+  if (v === null || v === undefined || isNaN(v)) return { badge: "badge-amber", fill: "var(--amber)" };
+  if (v < 0.5) return { badge: "badge-red", fill: "var(--red)" };
+  if (v <= 0.75) return { badge: "badge-amber", fill: "var(--amber)" };
+  return { badge: "badge-green", fill: "var(--green)" };
+}
+
+function truncate(str, n) {
+  if (!str) return "";
+  return str.length > n ? str.slice(0, n).trim() + "…" : str;
+}
+
+async function apiFetch(path, options) {
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, options);
+  } catch (networkErr) {
+    const e = new Error("Network error — could not reach the API gateway.");
+    e.status = null;
+    throw e;
+  }
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body && body.message) message = body.message;
+    } catch (_) { /* body wasn't JSON, keep default message */ }
+    const e = new Error(message);
+    e.status = res.status;
+    throw e;
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// ---- Icons (inline SVG, no external icon set) ----
+
+function IconArrowLeft(props) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function IconAlert(props) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 9v4M12 17h.01M10.29 3.86l-8.18 14.18A2 2 0 0 0 3.82 21h16.36a2 2 0 0 0 1.71-3.01L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    </svg>
+  );
+}
+
+function IconCheck(props) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+function BrandMark() {
+  return (
+    <svg className="brand-mark" viewBox="0 0 34 34" fill="none">
+      <rect x="1" y="1" width="32" height="32" rx="8" stroke="#24314d" strokeWidth="1.2" />
+      <path d="M6 20 L11 20 L13.5 12 L17 26 L20 17 L22 20 L28 20"
+            stroke="#2dd4bf" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ---- Banners ----
+
+function ErrorBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div className="banner banner-error">
+      <IconAlert className="banner-icon" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function SuccessBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div className="banner banner-success">
+      <IconCheck className="banner-icon" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function WarningBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div className="banner banner-warning">
+      <IconAlert className="banner-icon" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+// ---- Session list ----
+
+function SessionCard({ session, onOpen }) {
+  const confidence = session.confidence;
+  const tone = confidenceTone(confidence);
+  return (
+    <button className="session-card" onClick={() => onOpen(session)}>
+      <div className="session-main">
+        <div className="session-device">
+          {session.device_id || "unknown-device"}
+          <span className="dev-tag">· {session.session_id}</span>
+        </div>
+        <div className="session-hypothesis">{truncate(session.hypothesis, 100)}</div>
+      </div>
+      <span className="method-tag">{session.calibration_method || "—"}</span>
+      <span className={`badge ${tone.badge}`}>{pct(confidence)}</span>
+    </button>
+  );
+}
+
+function ListView({ onOpenSession }) {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [notice, setNotice] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch("/sessions");
+      setSessions(Array.isArray(data) ? data : (data && data.sessions) || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div>
+      <div className="section-heading">
+        <h2>Pending sessions</h2>
+        <span className="count">{loading ? "" : `${sessions.length} awaiting review`}</span>
+      </div>
+
+      <WarningBanner message={notice} />
+      <ErrorBanner message={error} />
+
+      {loading && <div className="state-msg">Loading sessions…</div>}
+
+      {!loading && !error && sessions.length === 0 && (
+        <div className="empty-state">
+          <h3>Queue is clear</h3>
+          <p>No sessions are currently awaiting a calibration decision.</p>
+        </div>
+      )}
+
+      {!loading && sessions.length > 0 && (
+        <div className="session-list">
+          {sessions.map((s) => (
+            <SessionCard key={s.session_id} session={s} onOpen={onOpenSession} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Telemetry chart ----
+
+function TelemetryChart({ history }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    if (chartRef.current) {
+      chartRef.current.destroy();
+      chartRef.current = null;
+    }
+    const labels = (history || []).map((h) => h.ts);
+    const angleErr = (history || []).map((h) => h.angle_error);
+    const klDiv = (history || []).map((h) => h.kl_divergence);
+
+    chartRef.current = new Chart(canvasRef.current.getContext("2d"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Angle error",
+            data: angleErr,
+            borderColor: "#2dd4bf",
+            backgroundColor: "rgba(45,212,191,0.08)",
+            yAxisID: "y",
+            tension: 0.25,
+            pointRadius: 0,
+            borderWidth: 2,
+            fill: true,
+          },
+          {
+            label: "KL divergence",
+            data: klDiv,
+            borderColor: "#60a5fa",
+            backgroundColor: "rgba(96,165,250,0.06)",
+            yAxisID: "y1",
+            tension: 0.25,
+            pointRadius: 0,
+            borderWidth: 2,
+            fill: true,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { display: false }, tooltip: {
+          backgroundColor: "#101a2e",
+          borderColor: "#24314d",
+          borderWidth: 1,
+          titleColor: "#e9eef7",
+          bodyColor: "#8b9ab3",
+          padding: 10,
+        } },
+        scales: {
+          x: {
+            ticks: { color: "#5b6b87", font: { family: "JetBrains Mono", size: 10 }, maxRotation: 0 },
+            grid: { color: "#1b2740" },
+          },
+          y: {
+            position: "left",
+            ticks: { color: "#2dd4bf", font: { family: "JetBrains Mono", size: 10 } },
+            grid: { color: "#1b2740" },
+            title: { display: false },
+          },
+          y1: {
+            position: "right",
+            ticks: { color: "#60a5fa", font: { family: "JetBrains Mono", size: 10 } },
+            grid: { drawOnChartArea: false },
+          },
+        },
+      },
+    });
+
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, [history]);
+
+  return (
+    <div>
+      <div className="chart-wrap">
+        <canvas ref={canvasRef}></canvas>
+      </div>
+      <div className="chart-legend">
+        <div className="legend-item"><span className="legend-dot" style={{ background: "#2dd4bf" }}></span>Angle error</div>
+        <div className="legend-item"><span className="legend-dot" style={{ background: "#60a5fa" }}></span>KL divergence</div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Evidence panel ----
+
+function EvidencePanel({ memories }) {
+  if (!memories || memories.length === 0) {
+    return (
+      <div className="panel">
+        <p className="panel-label">Evidence</p>
+        <div className="no-precedent">
+          <IconAlert />
+          <span>No precedent found — novel pattern</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="panel">
+      <p className="panel-label">Evidence · {memories.length} cited</p>
+      <div className="evidence-list">
+        {memories.map((m, i) => (
+          <div className="evidence-card" key={i}>
+            <div className="evidence-top">
+              <span className="evidence-label">{m.root_cause_label || "Unlabeled precedent"}</span>
+              <span className="evidence-outcome" style={{ color: (m.outcome_score >= 0.5 ? "#34d399" : "#f0576a") }}>
+                {pct(m.outcome_score)} outcome
+              </span>
+            </div>
+            <div className="evidence-metrics">
+              <span><b>mean Δangle</b> {m.feature_summary && m.feature_summary.mean_angle_error !== undefined ? m.feature_summary.mean_angle_error : "—"}</span>
+              <span><b>mean KL</b> {m.feature_summary && m.feature_summary.mean_kl_divergence !== undefined ? m.feature_summary.mean_kl_divergence : "—"}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---- Calibration form ----
+
+function CalibrationPanel({ session, onDecided }) {
+  const proposedParams = session.proposed_params || {};
+  const [editable, setEditable] = useState(() => {
+    const init = {};
+    Object.keys(proposedParams).forEach((k) => { init[k] = proposedParams[k]; });
+    return init;
+  });
+  const [operatorId, setOperatorId] = useState("demo_clinician");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+
+  const editableNumberKeys = ["rotation_deg", "gain_adjustment"];
+  const checkboxKeys = ["channel_reweight"];
+
+  function updateField(key, value) {
+    setEditable((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function submitDecision(decision) {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const finalParams = decision === "approve" ? { ...proposedParams, ...editable } : null;
+      const result = await apiFetch(`/sessions/${session.session_id}/decide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          operator_id: operatorId,
+          decision,
+          final_params: finalParams,
+          reason: reason || undefined,
+        }),
+      });
+      onDecided({ ok: true, decision, result });
+    } catch (e) {
+      if (e.status === 409) {
+        onDecided({ ok: false, conflict: true });
+      } else {
+        setFormError(e.message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <p className="panel-label">Proposed calibration</p>
+      <span className="method-chip">{session.calibration_method || "unspecified method"}</span>
+
+      <div>
+        {Object.keys(proposedParams).map((key) => {
+          const value = proposedParams[key];
+          if (editableNumberKeys.includes(key)) {
+            return (
+              <div className="param-row" key={key}>
+                <span className="param-key">{key}</span>
+                <input
+                  className="param-input"
+                  type="number"
+                  step="any"
+                  value={editable[key]}
+                  onChange={(e) => updateField(key, e.target.value === "" ? "" : parseFloat(e.target.value))}
+                />
+              </div>
+            );
+          }
+          if (checkboxKeys.includes(key)) {
+            return (
+              <div className="param-row" key={key}>
+                <span className="param-key">{key}</span>
+                <input
+                  className="param-checkbox"
+                  type="checkbox"
+                  checked={!!editable[key]}
+                  onChange={(e) => updateField(key, e.target.checked)}
+                />
+              </div>
+            );
+          }
+          return (
+            <div className="param-row" key={key}>
+              <span className="param-key">{key}</span>
+              <span className="param-readonly">{typeof value === "object" ? JSON.stringify(value) : String(value)}</span>
+            </div>
+          );
+        })}
+        {Object.keys(proposedParams).length === 0 && (
+          <p className="param-readonly">No parameters proposed for this session.</p>
+        )}
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <div className="field">
+          <label>Operator ID</label>
+          <input type="text" value={operatorId} onChange={(e) => setOperatorId(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Reason (optional)</label>
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Add context for the audit log" />
+        </div>
+      </div>
+
+      <ErrorBanner message={formError} />
+
+      <div className="action-row">
+        <button className="btn btn-approve" disabled={submitting} onClick={() => submitDecision("approve")}>
+          {submitting ? "Submitting…" : "Approve"}
+        </button>
+        <button className="btn btn-reject" disabled={submitting} onClick={() => submitDecision("reject")}>
+          {submitting ? "Submitting…" : "Reject"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---- Detail view ----
+
+function DetailView({ sessionSummary, onBack, onResolved }) {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch(`/sessions/${sessionSummary.session_id}`);
+      const flat = {
+        device_id: sessionSummary.device_id,
+        confidence_score: data.diagnosis?.confidence,
+        hypothesis: data.diagnosis?.hypothesis,
+        cited_memories: data.cited_memories,
+        proposed_params: data.calibration?.proposed_params,
+        calibration_method: data.calibration?.calibration_method,
+        telemetry_history: data.telemetry_history,
+      };
+      setSession(flat);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionSummary.session_id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function handleDecided(outcome) {
+    if (!outcome.ok && outcome.conflict) {
+      onResolved({ conflict: true });
+      return;
+    }
+    const nextStatus = outcome.decision === "approve" ? "deploying" : "rejected";
+    onResolved({ conflict: false, message: `Session moved to: ${nextStatus}` });
+  }
+
+  return (
+    <div>
+      <button className="back-btn" onClick={onBack}>
+        <IconArrowLeft /> Back to queue
+      </button>
+
+      <ErrorBanner message={error} />
+
+      {loading && <div className="state-msg">Loading session detail…</div>}
+
+      {!loading && session && (
+        <React.Fragment>
+          <div className="detail-header">
+            <div>
+              <div className="detail-title">{session.device_id || sessionSummary.device_id}</div>
+              <div className="detail-sub">{session.session_id}</div>
+            </div>
+            <span className={`badge ${confidenceTone(session.confidence_score).badge}`}>
+              {pct(session.confidence_score)} confidence
+            </span>
+          </div>
+
+          <div className="detail-grid">
+            <div>
+              <div className="panel">
+                <p className="panel-label">Telemetry history</p>
+                <TelemetryChart history={session.telemetry_history} />
+              </div>
+
+              <div className="panel">
+                <p className="panel-label">Diagnosis</p>
+                <div className="hypothesis-block">{session.hypothesis}</div>
+                <div className="confidence-row">
+                  <div className="confidence-bar-track">
+                    <div
+                      className="confidence-bar-fill"
+                      style={{
+                        width: `${Math.round((session.confidence_score || 0) * 100)}%`,
+                        background: confidenceTone(session.confidence_score).fill,
+                      }}
+                    />
+                  </div>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-muted)" }}>
+                    {pct(session.confidence_score)}
+                  </span>
+                </div>
+              </div>
+
+              <EvidencePanel memories={session.cited_memories} />
+            </div>
+
+            <div>
+              <CalibrationPanel session={session} onDecided={handleDecided} />
+            </div>
+          </div>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+// ---- App ----
+
+function App() {
+  const [view, setView] = useState("list");
+  const [activeSession, setActiveSession] = useState(null);
+  const [listNotice, setListNotice] = useState(null);
+  const [listKey, setListKey] = useState(0);
+
+  function openSession(session) {
+    setListNotice(null);
+    setActiveSession(session);
+    setView("detail");
+  }
+
+  function backToList() {
+    setActiveSession(null);
+    setView("list");
+  }
+
+  function handleResolved(result) {
+    setActiveSession(null);
+    setView("list");
+    if (result.conflict) {
+      setListNotice("This session was already handled by someone else — refreshing.");
+    } else {
+      setListNotice(result.message);
+    }
+    setListKey((k) => k + 1); // forces ListView to remount and re-fetch
+  }
+
+  return (
+    <div className="shell">
+      <div className="topbar">
+        <div className="brand">
+          <BrandMark />
+          <div className="brand-text">
+            <h1>SynaptoFlow Cockpit</h1>
+            <p>closed-loop BCI calibration review</p>
+          </div>
+        </div>
+        <div className="live-pill">
+          <span className="live-dot"></span>
+          telemetry link active
+        </div>
+      </div>
+
+      {view === "list" && (
+        <ListViewWithNotice key={listKey} onOpenSession={openSession} initialNotice={listNotice} />
+      )}
+
+      {view === "detail" && activeSession && (
+        <DetailView sessionSummary={activeSession} onBack={backToList} onResolved={handleResolved} />
+      )}
+    </div>
+  );
+}
+
+// Small wrapper so a one-off notice (from a just-completed decision) can be
+// shown above the list without living inside ListView's own fetch cycle.
+function ListViewWithNotice({ onOpenSession, initialNotice }) {
+  return (
+    <div>
+      <SuccessBanner message={initialNotice && !initialNotice.startsWith("This session") ? initialNotice : null} />
+      <WarningBanner message={initialNotice && initialNotice.startsWith("This session") ? initialNotice : null} />
+      <ListView onOpenSession={onOpenSession} />
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
