@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SynaptoFlow — Clinical Telemetry Cockpit</title>
+<title>Reanchor — Clinical Telemetry Cockpit</title>
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1071,6 +1071,7 @@ function DetailView({ sessionSummary, onBack, onResolved }) {
       const flat = {
         session_id: sessionSummary.session_id,
         device_id: sessionSummary.device_id,
+        patient_id: data.session?.patient_id,
         confidence_score: data.diagnosis?.confidence,
         hypothesis: data.diagnosis?.hypothesis,
         cited_memories: data.cited_memories,
@@ -1113,6 +1114,7 @@ function DetailView({ sessionSummary, onBack, onResolved }) {
             <div>
               <div className="detail-title">{session.device_id || sessionSummary.device_id}</div>
               <div className="detail-sub">{session.session_id}</div>
+              <div className="detail-sub">patient: {session.patient_id}</div>
             </div>
             <span className={`badge ${confidenceTone(session.confidence_score).badge}`}>
               {pct(session.confidence_score)} confidence
@@ -1194,7 +1196,7 @@ function App() {
         <div className="brand">
           <BrandMark />
           <div className="brand-text">
-            <h1>SynaptoFlow Cockpit</h1>
+          <h1>Reanchor Cockpit</h1>
             <p>closed-loop BCI calibration review</p>
           </div>
         </div>
