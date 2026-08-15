@@ -9,7 +9,7 @@
 
 Built for the **CockroachDB × AWS Hackathon — Build with Agentic Memory**.
 
-**Live demo:** `<your final cockpit URL goes here once the new bucket is live>`
+**Live demo:** `http://reanchor-cockpit-dekunlab.s3-website.eu-north-1.amazonaws.com/`
 
 ---
 
@@ -17,10 +17,7 @@ Built for the **CockroachDB × AWS Hackathon — Build with Agentic Memory**.
 
 Brain-Computer Interfaces (BCIs) read electrical signals from the brain and translate them into commands — moving a cursor, controlling a robotic limb. Over time these signals **drift**: the electrodes move slightly, scar tissue forms around them, the brain itself adapts — and the decoder that used to translate signals accurately starts making mistakes. Today, fixing that drift requires a human clinical engineer to notice the problem and manually recalibrate the system, which does not scale past a handful of research subjects. **Reanchor automates the detection and diagnosis of that drift, proposes a mathematically real fix, and — critically — never applies anything to a real device without an explicit human sign-off.** Every case it resolves becomes a permanent memory, stored in CockroachDB, that makes the *next* diagnosis faster and better-evidenced.
 
-<p align="center">
-  <img src="docs/assets/cockpit-queue.png" width="700" alt="Reanchor cockpit — pending sessions queue">
-</p>
-
+![Reanchor cockpit — pending sessions queue](docs/assets/cockpit-queue.png)
 ---
 
 ## Table of contents
@@ -69,9 +66,7 @@ When any of these happen, the decoder starts making the wrong call more often �
 
 ## Screenshots
 
-<p align="center">
-  <img src="docs/assets/cockpit-detail.png" width="800" alt="Reanchor cockpit — session detail view, showing telemetry chart, diagnosis, cited memory evidence, and the editable calibration proposal">
-</p>
+![Reanchor cockpit — session detail view, showing telemetry chart, diagnosis, cited memory evidence, and the editable calibration proposal](docs/assets/cockpit-detail.png)
 
 The detail view above is a real, live capture — not a mockup. From top to bottom: the session's actual telemetry history, the full text of the AI's diagnosis with its confidence score, **five real past cases the vector search retrieved** (each with its own outcome and telemetry averages — this is the "memory" made visible), and the proposed calibration with editable fields the clinician can adjust before approving.
 
@@ -115,6 +110,11 @@ flowchart TB
 
     EB -->|scheduled trigger| L1
     EB -->|scheduled trigger| L2
+    EB -->|scheduled trigger| L3
+    EB -->|scheduled trigger| L4
+    EB -->|scheduled trigger| L5
+    EB -->|scheduled trigger| L7
+    EB -->|scheduled trigger| L8
     L1 -->|writes telemetry| DB
     L2 -->|reads telemetry, flags anomaly| DB
     L3 -->|vector search + writes diagnosis| DB
@@ -207,7 +207,7 @@ This distinction matters, and we'd rather over-explain it than have anyone assum
 | **Amazon Bedrock** | Hosts the Diagnostic Agent's single reasoning call (Amazon Nova 2 Lite, EU cross-region inference profile) — the only place in the system a language model is used, and it never outputs a number that gets acted on. |
 | **Amazon API Gateway** | Exposes the Cockpit's backend as a real public HTTPS API. |
 | **Amazon S3** | Static hosting for the cockpit's frontend. |
-| **Amazon EventBridge Scheduler** | Drives the continuous telemetry heartbeat and anomaly-monitoring polls. |
+| **Amazon EventBridge Scheduler** | Drives the entire pipeline autonomously — every agent except the human-facing cockpit runs on its own recurring schedule and discovers whatever matching sessions exist on its own, with zero manual invocation required. The only genuinely manual step in the whole system is injecting a drift event itself, which correctly stands in for a real physical event no software should invent on its own. |
 
 ---
 
@@ -230,6 +230,8 @@ This is a real run, not a constructed example — patient `4176b647-1577-47a2-9b
 **7. A new memory was written.** A new `drift_signatures` row was created — `root_cause_label: tissue_encapsulation` (correctly inherited from the diagnosis's own top citation), with full provenance linking it back to the exact deployment that created it. The next similar case this patient has will have one more precedent to draw on than this one did.
 
 **8. The oversight layer caught real problems, for real.** During development, the Guardian Agent's compliance digest correctly flagged two genuine permission-configuration errors in the Deployment Agent (both since fixed) by cross-referencing the internal audit log — proof the oversight agent isn't decorative.
+
+**Steps 2 through 7 above now happen entirely unattended.** At the time this run was captured, each stage was triggered manually one at a time to verify it in isolation. Every agent is now on its own EventBridge schedule, so the only manual step in the system, start to finish, is the drift event itself — the one part that correctly should be manual, since it stands in for a real physical event.
 
 ---
 
@@ -297,7 +299,7 @@ zip -r ../<agent-name>.zip .
 Then in the AWS Lambda console: create a Python 3.12 / x86_64 function, upload the zip, set the `DATABASE_URL` environment variable to that agent's own CockroachDB connection string, and set a timeout of 15–30 seconds depending on the agent.
 
 **4. Wire up scheduling and the API**
-- EventBridge Scheduler: two recurring rules — one calling the Telemetry Simulator with an ambient payload, one calling the Anomaly Detection Agent — both on a 1–2 minute rate.
+- EventBridge Scheduler: seven recurring schedules, all pointing at their respective Lambda with no payload required (each agent scans for and processes whatever matching sessions currently exist) — Telemetry Simulator (ambient) and Anomaly Detection Agent on a short rate, Diagnostic/Calibration/Deployment agents keeping the core pipeline flowing, Recovery Sweeper on a longer interval for housekeeping, and Guardian Agent on the longest interval for its periodic compliance digest.
 - API Gateway: an HTTP API with three routes (`GET /sessions`, `GET /sessions/{session_id}`, `POST /sessions/{session_id}/decide`) all pointing at the Cockpit API Lambda, with CORS enabled for all origins.
 
 **5. Deploy the cockpit**
@@ -306,6 +308,23 @@ Then in the AWS Lambda console: create a Python 3.12 / x86_64 function, upload t
 - Upload it as `index.html`.
 
 ---
+
+## Glossary
+
+Terms used throughout this document and in the live system, defined plainly:
+
+| Term | Meaning |
+|---|---|
+| **Signal drift** | The gradual misalignment between a BCI's decoder and the actual brain signal it's reading, caused by electrode movement, scar tissue, or physiological change. |
+| **Angle error** | How far off the decoded direction is from the intended one — the primary drift metric this system watches. |
+| **KL divergence** | A measure of how much the current signal's statistical distribution has shifted from a healthy baseline — the second drift metric. |
+| **Embedding / vector** | A drift pattern converted into a list of 16 numbers, positioned so that similar patterns land near each other — this is what makes "find similar past cases" mathematically possible. |
+| **Distributed vector index** | CockroachDB's index structure that makes searching those embeddings fast even as the memory table grows, without a separate vector database. |
+| **Root cause label** | The likely physical cause of a given drift pattern (e.g. `tissue_encapsulation`), inherited by a new memory from whichever past case it most resembled. |
+| **Outcome score** | How well a given past fix actually worked, on a 0–1 scale — part of what the AI cites as evidence. |
+| **Residual (pre/post)** | The remaining rotational error before and after a correction is applied — the actual, checkable proof a fix worked, not an assumed one. |
+| **OCC (optimistic concurrency control)** | The mechanism preventing two agents from acting on the same session at once — each write includes a version check, and loses gracefully if another agent won the race. |
+| **Session state** | The single source of truth for where one drift episode currently sits in the pipeline (`monitoring`, `diagnosing`, `awaiting_approval`, etc.) — lives entirely in CockroachDB, not in any agent's memory. |
 
 ## Known limitations
 
