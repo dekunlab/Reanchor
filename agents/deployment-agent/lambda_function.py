@@ -183,10 +183,10 @@ def lambda_handler(event, context):
 
                     if sig_ids_list and len(sig_ids_list) > 0:
                         first_sig_id = sig_ids_list[0]
-                    cursor.execute("SELECT root_cause_label FROM drift_signatures WHERE signature_id = %s", (first_sig_id,))
-                    rc_row = cursor.fetchone()
-                    if rc_row and rc_row[0]:
-                        root_cause_label = rc_row[0]
+                        cursor.execute("SELECT root_cause_label FROM drift_signatures WHERE signature_id = %s", (first_sig_id,))
+                        rc_row = cursor.fetchone()
+                        if rc_row and rc_row[0]:
+                            root_cause_label = rc_row[0]
 
                 # 12. Build the new embedding
                 embedding_vector = build_feature_vector(readings)
