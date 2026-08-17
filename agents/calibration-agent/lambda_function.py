@@ -91,16 +91,18 @@ def lambda_handler(event, context):
                 )
                 diag_row = cur.fetchone()
                 
+                # --- FIXED INDENTATION BLOCK ---
                 retrieved_signature_ids = []
-confidence = 0.0
-if diag_row:
-    sig_ids_raw = diag_row[0]
-    if isinstance(sig_ids_raw, str):
-        stripped = sig_ids_raw.strip('{}')
-        retrieved_signature_ids = stripped.split(',') if stripped else []
-    else:
-        retrieved_signature_ids = sig_ids_raw or []
-    confidence = diag_row[1] or 0.0
+                confidence = 0.0
+                if diag_row:
+                    sig_ids_raw = diag_row[0]
+                    if isinstance(sig_ids_raw, str):
+                        stripped = sig_ids_raw.strip('{}')
+                        retrieved_signature_ids = stripped.split(',') if stripped else []
+                    else:
+                        retrieved_signature_ids = sig_ids_raw or []
+                    confidence = diag_row[1] or 0.0
+                # -------------------------------
                 
                 # 4. DECIDE THE PATH
                 if retrieved_signature_ids and len(retrieved_signature_ids) > 0 and confidence >= (1.0 - NOVELTY_THRESHOLD):
